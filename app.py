@@ -1,7 +1,5 @@
 from flask import Flask, render_template, request, jsonify, session, url_for, redirect
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv, dotenv_values
@@ -9,6 +7,21 @@ import json
 from itsdangerous import URLSafeTimedSerializer
 import uuid
 from functools import wraps
+
+# Initialize Flask app first
+app = Flask(__name__)
+app.config['SECRET_KEY'] = 'dev-key-123'  # Use a fixed key for development
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///shop.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SESSION_COOKIE_SECURE'] = False  # Allow non-HTTPS for development
+app.config['SECURITY_PASSWORD_SALT'] = 'email-confirm-key'
+
+# Import db and initialize it with app
+from db import db
+db.init_app(app)
+
+# Import models after db initialization
+from models import Employee, Product, Order, Cart, Company, SupportTicket, Refund
 
 # Read API key directly from .env file
 env_path = os.path.join(os.path.dirname(__file__), '.env')
@@ -35,14 +48,7 @@ except Exception as e:
 
 from flask import Flask, jsonify, request, session, url_for
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = 'dev-key-123'  # Use a fixed key for development
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///shop.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SESSION_COOKIE_SECURE'] = False  # Allow non-HTTPS for development
-app.config['SECURITY_PASSWORD_SALT'] = 'email-confirm-key'
-
-db = SQLAlchemy(app)
+# Initialize login manager
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -50,7 +56,7 @@ login_manager.login_view = 'login'
 
 @login_manager.user_loader
 def load_user(user_id):
-    return Employee.query.get(int(user_id))
+    return Employee.query.filter_by(id=int(user_id)).first()
 
 def generate_token(email):
     serializer = URLSafeTimedSerializer(app.config['SECRET_KEY'])
@@ -67,191 +73,6 @@ def confirm_token(token, expiration=3600):
         return email
     except:
         return False
-
-# Database Models
-class Company(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    domain = db.Column(db.String(100), nullable=False)
-    meal_allowance_refresh_cycle = db.Column(db.String(20), default='monthly')  # monthly, weekly, daily
-    default_meal_allowance = db.Column(db.Float, default=0.0)
-
-class Cart(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
-    quantity = db.Column(db.Integer, default=1)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    product = db.relationship('Product', backref='cart_items')
-    
-    @property
-    def subtotal(self):
-        return self.quantity * self.product.price
-
-class Employee(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    name = db.Column(db.String(100), nullable=False)
-    password_hash = db.Column(db.String(128))
-    meal_allowance = db.Column(db.Float, default=0)
-    credit_balance = db.Column(db.Float, default=0)
-    credit_card = db.Column(db.JSON)
-    
-    # Relationships
-    cart_items = db.relationship('Cart', backref='employee', lazy=True)
-    
-    def __init__(self, email, name, password, meal_allowance=0, credit_balance=0, credit_card=None):
-        self.email = email
-        self.name = name
-        self.meal_allowance = meal_allowance
-        self.credit_balance = credit_balance
-        self.credit_card = credit_card or {}
-        if password:
-            self.set_password(password)
-    
-    def calculate_payment_breakdown(self, total_amount):
-        remaining = total_amount
-        
-        # Use allowance first
-        allowance_used = min(self.meal_allowance, remaining)
-        remaining -= allowance_used
-        
-        # Use credits next
-        credits_used = min(self.credit_balance, remaining)
-        remaining -= credits_used
-        
-        # Calculate tax (10%)
-        tax = total_amount * 0.1
-        
-        return {
-            'subtotal': total_amount,
-            'tax': tax,
-            'grand_total': total_amount + tax,
-            'allowance_used': allowance_used,
-            'credits_used': credits_used,
-            'credit_card_charge': remaining
-        }
-    is_active = db.Column(db.Boolean, default=True)
-    failed_login_attempts = db.Column(db.Integer, default=0)
-    last_failed_login = db.Column(db.DateTime)
-    account_locked_until = db.Column(db.DateTime)
-    password_reset_token = db.Column(db.String(100), unique=True)
-    password_reset_expires = db.Column(db.DateTime)
-    
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
-    
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
-    
-    def is_account_locked(self):
-        if self.account_locked_until and self.account_locked_until > datetime.utcnow():
-            return True
-        return False
-    
-    def increment_failed_login(self):
-        self.failed_login_attempts += 1
-        self.last_failed_login = datetime.utcnow()
-        
-        if self.failed_login_attempts >= 3:
-            self.account_locked_until = datetime.utcnow() + timedelta(minutes=30)
-        
-        db.session.commit()
-    
-    def reset_failed_login(self):
-        self.failed_login_attempts = 0
-        self.last_failed_login = None
-        self.account_locked_until = None
-        db.session.commit()
-
-class Product(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.Text, nullable=False)
-    price = db.Column(db.Float, nullable=False)
-    category = db.Column(db.String(50), nullable=True)
-    dietary_info = db.Column(db.Text, nullable=True)  # JSON: allergens, dietary restrictions
-    available = db.Column(db.Boolean, default=True)
-
-class SupportTicket(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    customer_email = db.Column(db.String(120), nullable=False)
-    issue = db.Column(db.Text, nullable=False)
-    status = db.Column(db.String(20), nullable=False, default='open')  # open, in_progress, resolved
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
-    ticket_type = db.Column(db.String(50), nullable=False, default='general')  # general, cancellation
-    order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=True)
-    
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'customer_email': self.customer_email,
-            'issue': self.issue,
-            'status': self.status,
-            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-            'updated_at': self.updated_at.strftime('%Y-%m-%d %H:%M:%S'),
-            'ticket_type': self.ticket_type,
-            'order_id': self.order_id
-        }
-
-class Order(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    employee_id = db.Column(db.Integer, db.ForeignKey('employee.id'), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
-    quantity = db.Column(db.Integer, nullable=False)
-    price = db.Column(db.Float, nullable=False)
-    order_time = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    allowance_used = db.Column(db.Float, default=0)
-    credits_used = db.Column(db.Float, default=0)
-    status = db.Column(db.String(50), nullable=False, default='order_received')
-    estimated_delivery = db.Column(db.DateTime)
-    customer_email = db.Column(db.String(120))
-    
-    product = db.relationship('Product', backref='orders')
-    employee = db.relationship('Employee', backref='orders')
-    
-    ORDER_STATUSES = [
-        'order_received',
-        'order_confirmed',
-        'preparing_order',
-        'waiting_for_driver',
-        'order_on_the_way',
-        'order_delivered'
-    ]
-    
-    def get_status_display(self):
-        return self.status.replace('_', ' ').title()
-    
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'product': {
-                'name': self.product.name,
-                'price': self.price
-            },
-            'quantity': self.quantity,
-            'total': self.price * self.quantity,
-            'order_time': self.order_time.isoformat(),
-            'estimated_delivery': self.estimated_delivery.isoformat() if self.estimated_delivery else None,
-            'status': self.status,
-            'status_display': self.get_status_display(),
-            'payment': {
-                'allowance_used': self.allowance_used,
-                'credits_used': self.credits_used,
-                'card_charged': (self.price * self.quantity) - self.allowance_used - self.credits_used
-            }
-        }
-
-class Refund(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=False)
-    amount = db.Column(db.Float, nullable=False)
-    reason = db.Column(db.Text, nullable=False)
-    status = db.Column(db.String(20), default='pending')  # pending, approved, rejected
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    credit_amount = db.Column(db.Float, default=0.0)  # Amount given as credit instead of refund
 
 # Ensure the instance folder exists
 if not os.path.exists('instance'):
@@ -455,6 +276,10 @@ def get_user_info():
     cart_total = sum(item.quantity * item.product.price for item in current_user.cart_items)
     
     cart_breakdown = current_user.calculate_payment_breakdown(cart_total)
+    tax_rate = 0.08  # 8% tax
+    tax = cart_total * tax_rate
+    grand_total = cart_total + tax
+    
     return jsonify({
         'email': current_user.email,
         'meal_allowance': current_user.meal_allowance,
@@ -471,7 +296,14 @@ def get_user_info():
                 'quantity': item.quantity,
                 'subtotal': item.subtotal
             } for item in current_user.cart_items],
-            'breakdown': cart_breakdown
+            'breakdown': {
+                'subtotal': cart_total,
+                'tax': tax,
+                'grand_total': grand_total,
+                'allowance_used': cart_breakdown['meal_allowance'],
+                'credits_used': cart_breakdown['credit_balance'],
+                'credit_card_charge': cart_breakdown['credit_card']
+            }
         }
     })
 
@@ -485,41 +317,47 @@ def add_to_cart():
         product_id = data.get('product_id')
         quantity = data.get('quantity', 1)
         
-        print(f"Product ID: {product_id}, Quantity: {quantity}")
+        print(f"Product ID: {product_id}, Quantity: {quantity}, User ID: {current_user.id}")
         
         if not product_id or quantity < 1:
             print("Invalid product or quantity")
             return jsonify({'error': 'Invalid product or quantity'}), 400
         
-        product = Product.query.get(product_id)
-        if not product:
-            print(f"Product not found with ID: {product_id}")
-            return jsonify({'error': 'Product not found'}), 404
-        
-        print(f"Found product: {product.name}, price: {product.price}")
-        
-        # Check if product already in cart
-        cart_item = Cart.query.filter_by(
-            employee_id=current_user.id,
-            product_id=product_id
-        ).first()
-        
-        if cart_item:
-            print(f"Updating existing cart item, old quantity: {cart_item.quantity}")
-            cart_item.quantity += quantity
-            print(f"New quantity: {cart_item.quantity}")
-        else:
-            print("Creating new cart item")
-            cart_item = Cart(employee_id=current_user.id, product_id=product_id, quantity=quantity)
-            db.session.add(cart_item)
-        
-        db.session.commit()
-        print("Successfully added to cart")
-        return jsonify({'message': 'Added to cart'})
+        with app.app_context():
+            product = Product.query.get(product_id)
+            if not product:
+                print(f"Product not found with ID: {product_id}")
+                return jsonify({'error': 'Product not found'}), 404
+            
+            print(f"Found product: {product.name}, price: {product.price}")
+            
+            # Check if product already in cart
+            cart_item = Cart.query.filter_by(
+                employee_id=current_user.id,
+                product_id=product_id
+            ).first()
+            
+            if cart_item:
+                print(f"Updating existing cart item, old quantity: {cart_item.quantity}")
+                cart_item.quantity += quantity
+                print(f"New quantity: {cart_item.quantity}")
+            else:
+                print("Creating new cart item")
+                cart_item = Cart(employee_id=current_user.id, product_id=product_id, quantity=quantity)
+                db.session.add(cart_item)
+            
+            try:
+                db.session.commit()
+                print("Successfully added to cart")
+                return jsonify({'message': 'Added to cart'})
+            except Exception as e:
+                print(f"Error committing to database: {str(e)}")
+                db.session.rollback()
+                return jsonify({'error': 'Database error'}), 500
     except Exception as e:
         print(f"Error in add_to_cart: {str(e)}")
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Server error'}), 500
 
 @app.route('/api/cart/update', methods=['POST'])
 @login_required
@@ -529,7 +367,7 @@ def update_cart():
         item_id = data.get('item_id')
         quantity = int(data.get('quantity', 0))
         
-        cart_item = Cart.query.get(item_id)
+        cart_item = Cart.query.get_or_404(item_id)
         if not cart_item or cart_item.employee_id != current_user.id:
             return jsonify({'error': 'Cart item not found'}), 404
         
@@ -578,13 +416,13 @@ def place_order():
         grand_total = cart_total + tax
 
         # Get user's payment info
-        employee = Employee.query.get(current_user.id)
+        employee = Employee.query.filter_by(id=current_user.id).first()
         payment_breakdown = employee.calculate_payment_breakdown(grand_total)
 
         # Process credit card payment if needed
-        if payment_breakdown['credit_card_charge'] > 0:
+        if payment_breakdown['credit_card'] > 0:
             payment_result = process_credit_card_payment(
-                payment_breakdown['credit_card_charge'],
+                payment_breakdown['credit_card'],
                 employee.credit_card
             )
             if not payment_result['success']:
@@ -602,15 +440,15 @@ def place_order():
                 price=item.product.price,
                 order_time=order_time,
                 estimated_delivery=estimated_delivery,
-                allowance_used=payment_breakdown['allowance_used'] * (item.product.price * item.quantity / cart_total),
-                credits_used=payment_breakdown['credits_used'] * (item.product.price * item.quantity / cart_total)
+                allowance_used=payment_breakdown['meal_allowance'] * (item.product.price * item.quantity / cart_total),
+                credits_used=payment_breakdown['credit_balance'] * (item.product.price * item.quantity / cart_total)
             )
             db.session.add(order)
             orders.append(order)
 
         # Update employee's allowance and credits
-        employee.meal_allowance -= payment_breakdown['allowance_used']
-        employee.credit_balance -= payment_breakdown['credits_used']
+        employee.meal_allowance -= payment_breakdown['meal_allowance']
+        employee.credit_balance -= payment_breakdown['credit_balance']
 
         # Clear the cart
         Cart.query.filter_by(employee_id=current_user.id).delete()
@@ -685,6 +523,44 @@ def get_products():
         'category': p.category,
         'dietary_info': json.loads(p.dietary_info) if p.dietary_info else {}
     } for p in filtered_products])
+
+@app.route('/api/support/tickets/submit', methods=['POST'])
+def submit_support_ticket():
+    """Create a new support ticket"""
+    try:
+        data = request.json
+        if not data or not data.get('issue'):
+            return jsonify({'error': 'Issue description is required'}), 400
+            
+        # Get customer email from session if not provided
+        customer_email = data.get('customer_email')
+        if not customer_email:
+            customer_email = session.get('customer_email')
+            if not customer_email:
+                return jsonify({'error': 'Customer email is required'}), 400
+        
+        # Create ticket in app context
+        with app.app_context():
+            ticket = SupportTicket(
+                customer_email=customer_email,
+                issue=data['issue'],
+                ticket_type=data.get('ticket_type', 'general'),
+                order_id=data.get('order_id')
+            )
+            
+            db.session.add(ticket)
+            db.session.commit()
+            
+            # Convert to dict while still in app context
+            ticket_dict = ticket.to_dict()
+        
+        return jsonify({
+            'message': 'Support ticket created successfully',
+            'ticket': ticket_dict
+        })
+    except Exception as e:
+        print(f'Error creating support ticket: {str(e)}')
+        return jsonify({'error': 'Failed to create support ticket', 'details': str(e)}), 500
 
 @app.route('/api/support/tickets', methods=['GET'])
 def get_support_tickets():
@@ -884,7 +760,7 @@ def get_allowance():
     # Use the logged-in user
     employee = current_user
     
-    company = Company.query.get(employee.company_id)
+    company = Company.query.filter_by(id=employee.company_id).first()
     
     return jsonify({
         "meal_allowance": employee.meal_allowance,
@@ -894,28 +770,34 @@ def get_allowance():
     })
 
 @app.route('/api/orders/<int:order_id>/cancel', methods=['POST'])
-def cancel_order():
-    order_id = request.view_args['order_id']
-    customer_email = session.get('customer_email')
-    
-    order = Order.query.get(order_id)
+def cancel_order(order_id):
+    """Cancel an order"""
+    data = request.json
+    if not data or not data.get('reason'):
+        return jsonify({"error": "Cancellation reason is required"}), 400
+
+    order = Order.query.filter_by(id=order_id).first()
     if not order:
         return jsonify({"error": "Order not found"}), 404
     
-    if order.customer_email != customer_email:
+    # Check if order belongs to current user
+    if order.customer_email != session.get('customer_email'):
         return jsonify({"error": "Unauthorized"}), 403
     
-    if order.status not in ['received', 'in preparation']:
-        return jsonify({"error": "Order cannot be cancelled"}), 400
+    # Only allow cancellation of pending orders
+    if order.status != 'pending':
+        return jsonify({"error": "Cannot cancel order - invalid status"}), 400
     
-    # Refund allowance and credits
-    employee = Employee.query.filter_by(email=customer_email).first()
-    if employee:
-        employee.meal_allowance += order.allowance_used
-        employee.credit_balance += order.credits_used
+    # Create support ticket for cancellation
+    ticket = SupportTicket(
+        customer_email=order.customer_email,
+        issue=f"Order #{order_id} cancellation request: {data['reason']}",
+        ticket_type='cancellation',
+        order_id=order_id
+    )
     
-    # Update order status
     order.status = 'cancelled'
+    db.session.add(ticket)
     order.cancellation_reason = request.json.get('reason')
     
     db.session.commit()
@@ -927,7 +809,7 @@ def request_refund():
     order_id = request.view_args['order_id']
     customer_email = session.get('customer_email')
     
-    order = Order.query.get(order_id)
+    order = Order.query.filter_by(id=order_id).first()
     if not order:
         return jsonify({"error": "Order not found"}), 404
     

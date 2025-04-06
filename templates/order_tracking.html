@@ -34,7 +34,9 @@
         'preparing_order',
         'waiting_for_driver',
         'order_on_the_way',
-        'order_delivered'
+        'order_delivered',
+        'cancelled',
+        'cancellation_requested'
     ];
 
     function getStatusProgress(status) {
@@ -81,10 +83,10 @@
                 <h3 class="font-semibold mb-2">Order Items</h3>
                 <div class="flex justify-between items-center">
                     <div>
-                        <p class="font-medium">${order.product.name}</p>
+                        <p class="font-medium">${order.product_name}</p>
                         <p class="text-sm text-gray-600">Quantity: ${order.quantity}</p>
                     </div>
-                    <p class="font-semibold">${formatCurrency(order.total)}</p>
+                    <p class="font-semibold">${formatCurrency(order.total_price)}</p>
                 </div>
             </div>
 
@@ -93,15 +95,15 @@
                 <div class="space-y-1">
                     <div class="flex justify-between">
                         <span>Meal Allowance Used:</span>
-                        <span>${formatCurrency(order.payment.allowance_used)}</span>
+                        <span>${formatCurrency(order.payment_breakdown.meal_allowance)}</span>
                     </div>
                     <div class="flex justify-between">
                         <span>Credits Used:</span>
-                        <span>${formatCurrency(order.payment.credits_used)}</span>
+                        <span>${formatCurrency(order.payment_breakdown.credit_balance)}</span>
                     </div>
                     <div class="flex justify-between font-semibold">
                         <span>Card Charged:</span>
-                        <span>${formatCurrency(order.payment.card_charged)}</span>
+                        <span>${formatCurrency(order.payment_breakdown.card_charged)}</span>
                     </div>
                 </div>
             </div>

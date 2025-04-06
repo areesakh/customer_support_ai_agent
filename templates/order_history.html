@@ -151,10 +151,10 @@
                     <div class="mt-4">
                         <div class="flex justify-between items-center">
                             <div>
-                                <p class="font-medium">${order.product.name}</p>
+                                <p class="font-medium">${order.product_name}</p>
                                 <p class="text-sm text-gray-600">Quantity: ${order.quantity}</p>
                             </div>
-                            <p class="font-semibold">${formatCurrency(order.total)}</p>
+                            <p class="font-semibold">${formatCurrency(order.total_price)}</p>
                         </div>
                     </div>
 
@@ -162,15 +162,15 @@
                         <div class="grid grid-cols-3 gap-4">
                             <div>
                                 <p>Allowance Used:</p>
-                                <p class="font-medium">${formatCurrency(order.payment.allowance_used)}</p>
+                                <p class="font-medium">${formatCurrency(order.payment_breakdown.meal_allowance)}</p>
                             </div>
                             <div>
                                 <p>Credits Used:</p>
-                                <p class="font-medium">${formatCurrency(order.payment.credits_used)}</p>
+                                <p class="font-medium">${formatCurrency(order.payment_breakdown.credit_balance)}</p>
                             </div>
                             <div>
                                 <p>Card Charged:</p>
-                                <p class="font-medium">${formatCurrency(order.payment.card_charged)}</p>
+                                <p class="font-medium">${formatCurrency(order.payment_breakdown.card_charged)}</p>
                             </div>
                         </div>
                     </div>
@@ -185,73 +185,5 @@
     loadOrderHistory();
 </script>
 
-<!-- Chat Widget -->
-<div id="chat-widget">
-    <div id="chat-button" onclick="toggleChat()">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
-        </svg>
-        <span>AI Assistant</span>
-    </div>
-    <div id="chat-interface">
-        <div id="chat-messages"></div>
-        <div id="chat-input-container">
-            <input type="text" id="chat-input" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
-        </div>
-    </div>
-</div>
 
-<script>
-    let chatVisible = false;
-    const chatInterface = document.getElementById('chat-interface');
-    const chatMessages = document.getElementById('chat-messages');
-    const chatInput = document.getElementById('chat-input');
-
-    function toggleChat() {
-        chatVisible = !chatVisible;
-        chatInterface.style.display = chatVisible ? 'flex' : 'none';
-        if (chatVisible) {
-            chatInput.focus();
-        }
-    }
-
-    async function sendMessage() {
-        const message = chatInput.value.trim();
-        if (!message) return;
-
-        // Add user message to chat
-        addMessage(message, 'user');
-        chatInput.value = '';
-
-        try {
-            const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ message })
-            });
-
-            const data = await response.json();
-            addMessage(data.response, 'assistant');
-        } catch (error) {
-            console.error('Error:', error);
-            addMessage('Sorry, I encountered an error. Please try again.', 'assistant');
-        }
-    }
-
-    function addMessage(text, type) {
-        const messageDiv = document.createElement('div');
-        messageDiv.classList.add('message', `${type}-message`);
-        messageDiv.textContent = text;
-        chatMessages.appendChild(messageDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    function handleKeyPress(event) {
-        if (event.key === 'Enter') {
-            sendMessage();
-        }
-    }
-</script>
 {% endblock %}
