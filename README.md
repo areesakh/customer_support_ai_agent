@@ -28,7 +28,7 @@ OPENAI_API_KEY=your_api_key_here
 python app.py
 ```
 
-5. Visit http://localhost:5000 in your browser
+5. Visit http://localhost:5001 in your browser
 
 ## Features
 - Real-time AI chat support
