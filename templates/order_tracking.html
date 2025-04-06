@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-3xl mx-auto">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold">Order Tracking</h1>
+                <a href="/order-history" class="text-indigo-600 hover:text-indigo-800">View Order History</a>
+            </div>
+
+            <div id="order-details" class="space-y-6">
+                <!-- Order details will be populated here -->
+            </div>
+
+            <div class="mt-8">
+                <div class="relative">
+                    <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-200">
+                        <div id="progress-bar" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-green-500 transition-all duration-500"></div>
+                    </div>
+                    <div id="status-steps" class="flex justify-between">
+                        <!-- Status steps will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const ORDER_STATUSES = [
+        'order_received',
+        'order_confirmed',
+        'preparing_order',
+        'waiting_for_driver',
+        'order_on_the_way',
+        'order_delivered'
+    ];
+
+    function getStatusProgress(status) {
+        const index = ORDER_STATUSES.indexOf(status);
+        return ((index + 1) / ORDER_STATUSES.length) * 100;
+    }
+
+    function formatDateTime(isoString) {
+        return new Date(isoString).toLocaleString();
+    }
+
+    function formatCurrency(amount) {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD'
+        }).format(amount);
+    }
+
+    function updateOrderDisplay(order) {
+        // Update order details
+        document.getElementById('order-details').innerHTML = `
+            <div class="border-b pb-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-gray-600">Order ID</p>
+                        <p class="font-semibold">#${order.id}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600">Status</p>
+                        <p class="font-semibold">${order.status_display}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600">Order Time</p>
+                        <p class="font-semibold">${formatDateTime(order.order_time)}</p>
+                    </div>
+                    <div>
+                        <p class="text-gray-600">Estimated Delivery</p>
+                        <p class="font-semibold">${order.estimated_delivery ? formatDateTime(order.estimated_delivery) : 'Calculating...'}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-b pb-4">
+                <h3 class="font-semibold mb-2">Order Items</h3>
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="font-medium">${order.product.name}</p>
+                        <p class="text-sm text-gray-600">Quantity: ${order.quantity}</p>
+                    </div>
+                    <p class="font-semibold">${formatCurrency(order.total)}</p>
+                </div>
+            </div>
+
+            <div>
+                <h3 class="font-semibold mb-2">Payment Details</h3>
+                <div class="space-y-1">
+                    <div class="flex justify-between">
+                        <span>Meal Allowance Used:</span>
+                        <span>${formatCurrency(order.payment.allowance_used)}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Credits Used:</span>
+                        <span>${formatCurrency(order.payment.credits_used)}</span>
+                    </div>
+                    <div class="flex justify-between font-semibold">
+                        <span>Card Charged:</span>
+                        <span>${formatCurrency(order.payment.card_charged)}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Update progress bar
+        const progress = getStatusProgress(order.status);
+        document.getElementById('progress-bar').style.width = `${progress}%`;
+
+        // Update status steps
+        document.getElementById('status-steps').innerHTML = ORDER_STATUSES.map(status => `
+            <div class="text-center flex-1">
+                <div class="relative">
+                    <div class="h-3 w-3 mx-auto mb-1 rounded-full ${
+                        ORDER_STATUSES.indexOf(status) <= ORDER_STATUSES.indexOf(order.status)
+                        ? 'bg-green-500'
+                        : 'bg-gray-300'
+                    }"></div>
+                </div>
+                <div class="text-xs text-gray-600" style="word-break: break-word;">
+                    ${status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Fetch and update order data every 30 seconds
+    async function fetchOrderData() {
+        try {
+            const orderId = window.location.pathname.split('/').pop();
+            const response = await fetch(`/api/orders/${orderId}`);
+            const order = await response.json();
+            updateOrderDisplay(order);
+
+            // Continue polling if order is not delivered
+            if (order.status !== 'order_delivered') {
+                setTimeout(fetchOrderData, 30000);
+            }
+        } catch (error) {
+            console.error('Error fetching order data:', error);
+        }
+    }
+
+    // Initial load
+    fetchOrderData();
+</script>
+{% endblock %}

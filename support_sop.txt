@@ -14,20 +14,46 @@
 - Training Package: Customizable to client needs
 
 ## 3. Common Issues and Solutions
+### Order & Delivery Status
+- Track current order status (received, in preparation, in transit, delivered)
+- Provide estimated delivery times
+### Order Cancellation
+- Process cancellation requests for orders not yet in preparation
+- Explain cancellation policies and cutoff times
+- Provide confirmation of successful cancellations
+- Redirect to human agent when orders cannot be canceled
+### Refund Processing
+- Handle refund requests for: late deliveries exceeding promised delivery windows, orders with missing or incorrect items, or food quality issues with appropriate evidence
+- Explain refund policies and processing timeframes
+- Initiate appropriate compensation (full/partial refunds, credits)
+### Meal Allowance Management
+- Explain company-specific meal allowance policies
+- Provide current allowance balances and usage history
+- Answer questions about allowance refresh cycles
+- Clarify restrictions on allowance usage
+### Credit System
+- Show available credit balance
+- Explain how credits are earned and applied
+- Assist with applying credits to orders
+- Clarify credit expiration policies
+### Dietary Information
+- Provide comprehensive allergen information for menu items
+- Filter menu options based on dietary requirements
+- Answer questions about ingredient sourcing
+- Suggest alternatives for dietary restrictions
+### Expense Management
+- Guide users through required expense fields (product codes, client codes)
+- Assist with company meal policy acknowledgments
+- Help categorize orders for expense reporting
+- Explain company-specific expense requirements
+### Ordering Issue
+- Ordering issue due to a declined credit card transaction for orders going above the meal budget
+- Log a ticket if the order failed or user is unable to proceed for any other reason
+
 ### Account Access
 - Reset password: Guide customers to the password reset page
-- Account locked: Verify identity and manually unlock after security checks
-- Subscription issues: Check payment status and renewal dates
+- Account locked: Suggest the user to wait for 30 mins for the account to automatically unlock or log a support ticket if they need immeediate action
 
-### Technical Support
-- Integration problems: Collect system details and escalate to technical team
-- Performance issues: Run diagnostic tests and check system requirements
-- Data sync: Verify API keys and connection status
-
-### Billing
-- Payment declined: Verify card details and suggest alternative payment methods
-- Refund requests: Review within 30 days of purchase
-- Subscription changes: Pro-rate charges for upgrades/downgrades
 
 ## 4. Escalation Protocol
 1. First level: Customer Support Representative

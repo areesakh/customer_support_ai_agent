@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Corporate Food Ordering System{% endblock %}
+
+{% block content %}
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <span class="text-lg font-semibold">Corporate Food Ordering</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/order-history" class="text-gray-700 hover:text-gray-900 font-medium">
+                        <svg class="w-5 h-5 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        Order History
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 py-6">
+        <!-- Balance Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold text-gray-700">Meal Allowance</h3>
+                <p class="text-3xl font-bold text-green-600">$<span id="meal-allowance">0.00</span></p>
+                <p class="text-sm text-gray-500">Refreshes monthly</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold text-gray-700">Credit Balance</h3>
+                <p class="text-3xl font-bold text-blue-600">$<span id="credit-balance">0.00</span></p>
+                <p class="text-sm text-gray-500">Available credits</p>
+            </div>
+        </div>
+
+        <!-- Menu Section -->
+        <div class="bg-white rounded-lg shadow">
+            <div class="p-6">
+                <h2 class="text-2xl font-bold mb-4">Today's Menu</h2>
+                
+                <!-- Filters -->
+                <div class="mb-6 space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Dietary Preferences</label>
+                        <div class="mt-2 space-x-4">
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" class="dietary-filter" value="vegetarian" class="h-4 w-4 text-indigo-600">
+                                <span class="ml-2">Vegetarian</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" class="dietary-filter" value="vegan" class="h-4 w-4 text-indigo-600">
+                                <span class="ml-2">Vegan</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" class="dietary-filter" value="gluten_free" class="h-4 w-4 text-indigo-600">
+                                <span class="ml-2">Gluten Free</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Exclude Allergens</label>
+                        <div class="mt-2 space-x-4">
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" class="allergen-filter" value="nuts" class="h-4 w-4 text-indigo-600">
+                                <span class="ml-2">Nuts</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" class="allergen-filter" value="dairy" class="h-4 w-4 text-indigo-600">
+                                <span class="ml-2">Dairy</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Menu Items -->
+                <div id="menu-items" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Menu items will be dynamically populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shopping Cart Sidebar -->
+    <div id="cart-sidebar" class="fixed right-0 top-0 w-96 h-full bg-white shadow-lg transform translate-x-full transition-transform duration-200 ease-in-out">
+        <div class="h-full flex flex-col">
+            <div class="p-4 border-b">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-2xl font-bold">Welcome, {{ current_user.name }}!</h2>
+                        <a href="/order-history" class="text-sm text-indigo-600 hover:text-indigo-800">View Order History</a>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-bold">Shopping Cart</h2>
+                    <button id="close-cart" class="text-gray-500 hover:text-gray-700">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex-grow overflow-y-auto p-4" id="cart-items">
+                <!-- Cart items will be populated here -->
+            </div>
+
+            <div class="border-t p-4 bg-gray-50">
+                <div class="space-y-2 mb-4">
+                    <div class="flex justify-between">
+                        <span>Subtotal:</span>
+                        <span id="cart-subtotal">$0.00</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Tax (8%):</span>
+                        <span id="cart-tax">$0.00</span>
+                    </div>
+                    <div class="flex justify-between font-bold">
+                        <span>Total:</span>
+                        <span id="cart-total">$0.00</span>
+                    </div>
+                </div>
+
+                <div class="space-y-2 mb-4 pt-2 border-t">
+                    <div class="flex justify-between text-sm">
+                        <span>Meal Allowance Used:</span>
+                        <span id="allowance-used">$0.00</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span>Credits Used:</span>
+                        <span id="credits-used">$0.00</span>
+                    </div>
+                    <div class="flex justify-between text-sm font-semibold">
+                        <span>Credit Card Charge:</span>
+                        <span id="card-charge">$0.00</span>
+                    </div>
+                    <div class="text-sm text-gray-600" id="card-info"></div>
+                </div>
+
+                <button id="place-order-btn" class="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
+                    Place Order
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cart Toggle Button -->
+    <button id="cart-toggle" class="fixed bottom-4 right-4 bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path>
+        </svg>
+        <span id="cart-count" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">0</span>
+    </button>
+
+
+
+    <script>
+        // Fetch user data and update UI
+        async function loadUserData() {
+            try {
+                console.log('Fetching user data...');
+                const response = await fetch('/api/user/info');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                console.log('User data received:', data);
+                document.getElementById('meal-allowance').textContent = data.meal_allowance.toFixed(2);
+                document.getElementById('credit-balance').textContent = data.credit_balance.toFixed(2);
+                console.log('UI updated with user data');
+            } catch (error) {
+                console.error('Error loading user data:', error);
+            }
+        }
+
+        // Load menu items with filters
+        // Call loadUserData when page loads
+        loadUserData();
+        
+        async function loadMenu() {
+            const dietaryFilters = Array.from(document.querySelectorAll('.dietary-filter:checked')).map(cb => cb.value);
+            const allergenFilters = Array.from(document.querySelectorAll('.allergen-filter:checked')).map(cb => cb.value);
+            
+            try {
+                const params = new URLSearchParams();
+                dietaryFilters.forEach(filter => params.append('dietary', filter));
+                allergenFilters.forEach(filter => params.append('exclude_allergens', filter));
+                
+                const response = await fetch(`/api/products?${params.toString()}`);
+                const products = await response.json();
+                
+                const menuContainer = document.getElementById('menu-items');
+                menuContainer.innerHTML = products.map(product => `
+                    <div class="bg-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <h3 class="text-lg font-semibold">${product.name}</h3>
+                        <p class="text-gray-600 text-sm mb-2">${product.description}</p>
+                        <p class="text-lg font-bold text-green-600 mb-2">$${product.price.toFixed(2)}</p>
+                        <div class="flex items-center space-x-2">
+                    <input type="number" 
+                           min="1" 
+                           value="1" 
+                           class="quantity-input w-20 px-2 py-1 border border-gray-300 rounded-md"
+                           data-product-id="${product.id}">
+                    <button onclick="addToCart(${product.id})" 
+                            class="flex-grow bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
+                        Add to Cart
+                    </button>
+                </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading menu:', error);
+            }
+        }
+
+        // Cart management
+        let cartVisible = false;
+
+        function toggleCart() {
+            const sidebar = document.getElementById('cart-sidebar');
+            cartVisible = !cartVisible;
+            sidebar.style.transform = cartVisible ? 'translateX(0)' : 'translateX(100%)';
+        }
+
+        document.getElementById('cart-toggle').onclick = toggleCart;
+        document.getElementById('close-cart').onclick = toggleCart;
+        document.getElementById('place-order-btn').onclick = placeOrder;
+
+        async function addToCart(productId) {
+            const quantityInput = document.querySelector(`input[data-product-id="${productId}"]`);
+            const quantity = parseInt(quantityInput.value) || 1;
+
+            try {
+                const response = await fetch('/api/cart/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ product_id: productId, quantity: quantity })
+                });
+
+                if (response.ok) {
+                    await updateCartDisplay();
+                    if (!cartVisible) toggleCart();
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'Failed to add item to cart');
+                }
+            } catch (error) {
+                alert('Error adding item to cart');
+            }
+        }
+
+        async function updateCartQuantity(itemId, quantity) {
+            try {
+                const response = await fetch('/api/cart/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ item_id: itemId, quantity: quantity })
+                });
+
+                if (response.ok) {
+                    await updateCartDisplay();
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'Failed to update cart');
+                }
+            } catch (error) {
+                alert('Error updating cart');
+            }
+        }
+
+        async function clearCart() {
+            try {
+                const response = await fetch('/api/cart/clear', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (response.ok) {
+                    await updateCartDisplay();
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'Failed to clear cart');
+                }
+            } catch (error) {
+                alert('Error clearing cart');
+            }
+        }
+
+        async function placeOrder() {
+            try {
+                const response = await fetch('/api/cart/place-order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    window.location.href = `/order-tracking/${result.order_id}`;
+                } else {
+                    alert(result.error || 'Failed to place order');
+                }
+            } catch (error) {
+                alert('Error placing order');
+            }
+        }
+
+        async function updateCartDisplay() {
+            const userData = await fetch('/api/user/info').then(r => r.json());
+            const { cart } = userData;
+            
+            // Update cart items
+            const cartItemsContainer = document.getElementById('cart-items');
+            cartItemsContainer.innerHTML = cart.items.map(item => `
+                <div class="flex items-center justify-between mb-4 pb-4 border-b">
+                    <div class="flex-grow">
+                        <h4 class="font-semibold">${item.product.name}</h4>
+                        <p class="text-sm text-gray-600">$${item.product.price.toFixed(2)} each</p>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <input type="number" 
+                               value="${item.quantity}" 
+                               min="0" 
+                               class="w-16 px-2 py-1 border border-gray-300 rounded-md"
+                               onchange="if(this.value > 0) updateCartQuantity(${item.id}, parseInt(this.value))">
+                        <button onclick="updateCartQuantity(${item.id}, 0)"
+                                class="text-red-500 hover:text-red-700">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            `).join('') || '<p class="text-gray-500 text-center">Your cart is empty</p>';
+
+            // Update totals
+            document.getElementById('cart-subtotal').textContent = `$${cart.breakdown.subtotal.toFixed(2)}`;
+            document.getElementById('cart-tax').textContent = `$${cart.breakdown.tax.toFixed(2)}`;
+            document.getElementById('cart-total').textContent = `$${cart.breakdown.grand_total.toFixed(2)}`;
+            
+            // Update payment breakdown
+            document.getElementById('allowance-used').textContent = `$${cart.breakdown.allowance_used.toFixed(2)}`;
+            document.getElementById('credits-used').textContent = `$${cart.breakdown.credits_used.toFixed(2)}`;
+            document.getElementById('card-charge').textContent = `$${cart.breakdown.credit_card_charge.toFixed(2)}`;
+            
+            // Update credit card info
+            const cardInfo = document.getElementById('card-info');
+            if (cart.breakdown.credit_card_charge > 0) {
+                cardInfo.textContent = `Will be charged to ${userData.credit_card.brand} ending in ${userData.credit_card.last4}`;
+            } else {
+                cardInfo.textContent = '';
+            }
+            
+            // Update cart count
+            const totalItems = cart.items.reduce((sum, item) => sum + item.quantity, 0);
+            document.getElementById('cart-count').textContent = totalItems;
+        }
+
+
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            loadUserData();
+            loadMenu();
+            
+            // Set up filter change handlers
+            document.querySelectorAll('.dietary-filter, .allergen-filter').forEach(checkbox => {
+                checkbox.addEventListener('change', loadMenu);
+            });
+
+            // AI Assistant setup
+            const aiButton = document.getElementById('ai-assistant-btn');
+            const chatInterface = document.getElementById('chat-interface');
+            const closeChat = document.getElementById('close-chat');
+            const chatForm = document.getElementById('chat-form');
+            const chatInput = document.getElementById('chat-input');
+            const chatMessages = document.getElementById('chat-messages');
+
+            aiButton.onclick = () => chatInterface.classList.remove('hidden');
+            closeChat.onclick = () => chatInterface.classList.add('hidden');
+
+            chatForm.onsubmit = async (e) => {
+                e.preventDefault();
+                const message = chatInput.value.trim();
+                if (!message) return;
+
+                // Add user message to chat
+                const userDiv = document.createElement('div');
+                userDiv.className = 'flex justify-end';
+                userDiv.innerHTML = `
+                    <div class="bg-indigo-600 text-white rounded-lg px-4 py-2 max-w-[80%]">
+                        ${message}
+                    </div>
+                `;
+                chatMessages.appendChild(userDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+
+                // Clear input
+                chatInput.value = '';
+
+                try {
+                    const response = await fetch('/api/chat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message })
+                    });
+
+                    const data = await response.json();
+
+                    // Add AI response to chat
+                    const aiDiv = document.createElement('div');
+                    aiDiv.className = 'flex justify-start';
+                    aiDiv.innerHTML = `
+                        <div class="bg-gray-200 text-gray-800 rounded-lg px-4 py-2 max-w-[80%]">
+                            ${data.response}
+                        </div>
+                    `;
+                    chatMessages.appendChild(aiDiv);
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('Failed to get response from AI Assistant');
+                }
+            };
+        });
+    </script>
+    <!-- AI Assistant Button and Chat Interface -->
+    <div class="fixed bottom-4 left-4 z-50">
+        <button id="ai-assistant-btn" class="bg-indigo-600 text-white rounded-full p-4 shadow-lg hover:bg-indigo-700 transition-colors flex items-center space-x-2">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
+            </svg>
+            <span>AI Assistant</span>
+        </button>
+    </div>
+
+    <!-- Chat Interface -->
+    <div id="chat-interface" class="fixed bottom-20 left-4 w-96 bg-white rounded-lg shadow-xl z-40 hidden">
+        <div class="p-4 border-b flex justify-between items-center">
+            <h3 class="text-lg font-semibold">AI Assistant</h3>
+            <button id="close-chat" class="text-gray-500 hover:text-gray-700">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        <div id="chat-messages" class="p-4 h-96 overflow-y-auto space-y-4"></div>
+        <div class="p-4 border-t">
+            <form id="chat-form" class="flex space-x-2">
+                <input type="text" id="chat-input" class="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Ask me anything...">
+                <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">
+                    Send
+                </button>
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', () => {
+        loadUserData();
+        loadMenu();
+        
+        // Set up filter change handlers
+        document.querySelectorAll('.dietary-filter, .allergen-filter').forEach(checkbox => {
+            checkbox.addEventListener('change', loadMenu);
+        });
+    });
+</script>
+{% endblock %}
