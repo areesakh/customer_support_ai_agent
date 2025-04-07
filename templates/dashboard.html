@@ -363,6 +363,12 @@
 
         // Initialize page
         document.addEventListener('DOMContentLoaded', () => {
+            // Add event listeners to all filter checkboxes
+            document.querySelectorAll('.dietary-filter, .allergen-filter').forEach(checkbox => {
+                checkbox.addEventListener('change', loadMenu);
+            });
+
+            // Initial load
             loadUserData();
             loadMenu();
             

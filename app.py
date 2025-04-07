@@ -493,25 +493,29 @@ def get_products():
     if dietary_filters or allergen_excludes:
         filtered_products = []
         for p in products:
-            dietary_info = json.loads(p.dietary_info or '{}')
-            
-            # Check dietary requirements
-            meets_dietary = True
-            for diet in dietary_filters:
-                if not dietary_info.get(diet, False):
-                    meets_dietary = False
-                    break
-            
-            # Check allergens
-            has_allergens = False
-            product_allergens = dietary_info.get('allergens', [])
-            for allergen in allergen_excludes:
-                if allergen in product_allergens:
-                    has_allergens = True
-                    break
-            
-            if meets_dietary and not has_allergens:
-                filtered_products.append(p)
+            try:
+                dietary_info = json.loads(p.dietary_info or '{}')
+                
+                # Check dietary requirements
+                meets_dietary = True
+                for diet in dietary_filters:
+                    if not dietary_info.get('dietary_preferences', {}).get(diet, False):
+                        meets_dietary = False
+                        break
+                
+                # Check allergens
+                has_allergens = False
+                product_allergens = dietary_info.get('allergens', [])
+                for allergen in allergen_excludes:
+                    if allergen in product_allergens:
+                        has_allergens = True
+                        break
+                
+                if meets_dietary and not has_allergens:
+                    filtered_products.append(p)
+            except json.JSONDecodeError:
+                # Skip products with invalid dietary info
+                continue
     else:
         filtered_products = products.all()
     
@@ -662,6 +666,9 @@ def init_db():
         db.session.query(Cart).delete()
         db.session.query(Order).delete()
         db.session.query(Product).delete()
+        db.session.query(Refund).delete()
+        db.session.query(SupportTicket).delete()
+        db.session.query(Company).delete()
         
         db.session.commit()
         
@@ -699,10 +706,42 @@ def init_db():
 
         # Create sample products
         products = [
-            Product(name='Burger', description='Classic beef burger', price=10.99),
-            Product(name='Pizza', description='Margherita pizza', price=12.99),
-            Product(name='Salad', description='Fresh garden salad', price=8.99),
-            Product(name='Pasta', description='Spaghetti carbonara', price=11.99)
+            Product(
+                name='Burger',
+                description='Classic beef burger',
+                price=10.99,
+                dietary_info=json.dumps({
+                    'dietary_preferences': {'vegetarian': False, 'vegan': False, 'gluten_free': False},
+                    'allergens': ['dairy']
+                })
+            ),
+            Product(
+                name='Pizza',
+                description='Margherita pizza',
+                price=12.99,
+                dietary_info=json.dumps({
+                    'dietary_preferences': {'vegetarian': True, 'vegan': False, 'gluten_free': False},
+                    'allergens': ['dairy', 'gluten']
+                })
+            ),
+            Product(
+                name='Salad',
+                description='Fresh garden salad',
+                price=8.99,
+                dietary_info=json.dumps({
+                    'dietary_preferences': {'vegetarian': True, 'vegan': True, 'gluten_free': True},
+                    'allergens': []
+                })
+            ),
+            Product(
+                name='Pasta',
+                description='Spaghetti carbonara',
+                price=11.99,
+                dietary_info=json.dumps({
+                    'dietary_preferences': {'vegetarian': True, 'vegan': False, 'gluten_free': False},
+                    'allergens': ['dairy', 'gluten']
+                })
+            )
         ]
         
         for product in products:
